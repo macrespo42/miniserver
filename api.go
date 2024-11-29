@@ -4,7 +4,81 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
+
+type parameters struct {
+	Body string `json:"body"`
+}
+
+func filterWords(words []string, text string) string {
+	for _, word := range words {
+		splitted := strings.Split(text, " ")
+		for index, element := range splitted {
+			if strings.ToLower(element) == word {
+				splitted[index] = "****"
+			}
+		}
+		text = strings.Join(splitted, " ")
+	}
+	return text
+}
+
+func respondWithError(w http.ResponseWriter, code int, msg string) {
+	type responseError struct {
+		Error string `json:"error"`
+	}
+
+	errBody := responseError{
+		Error: msg,
+	}
+	dat, err := json.Marshal(errBody)
+	if err != nil {
+		log.Printf("Error marshalling json: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+	w.Header().Add("Content-Type", "encoding/json")
+	w.WriteHeader(code)
+	w.Write(dat)
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	dat, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling json: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Header().Add("Content-Type", "encoding/json")
+	w.WriteHeader(code)
+	w.Write(dat)
+}
+
+func HandlerProfane(w http.ResponseWriter, r *http.Request) {
+	params := parameters{}
+	decoder := json.NewDecoder(r.Body)
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
+	filteredBody := filterWords(forbiddenWords, params.Body)
+
+	type responseBody struct {
+		CleanedBody string `json:"cleaned_body"`
+	}
+
+	respBody := responseBody{
+		CleanedBody: filteredBody,
+	}
+
+	respondWithJSON(w, 200, respBody)
+}
 
 func HandlerHealth(w http.ResponseWriter, _ *http.Request) {
 	body := []byte("OK")
@@ -14,63 +88,27 @@ func HandlerHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func HandlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
-
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 
 	err := decoder.Decode(&params)
-	type responseError struct {
-		Error string `json:"error"`
-	}
-
 	if err != nil {
-		errBody := responseError{
-			Error: "Something went wrong",
-		}
-		dat, err := json.Marshal(errBody)
-		if err != nil {
-			log.Printf("Error marshalling json: %s", err)
-			w.WriteHeader(500)
-			return
-		}
-		w.Header().Add("Content-Type", "encoding/json")
-		w.WriteHeader(500)
-		w.Write(dat)
+		respondWithError(w, 500, "Something went wrong")
 	}
 
 	if len(params.Body) > 140 {
-		errBody := responseError{
-			Error: "Chirp is too long",
-		}
-		dat, err := json.Marshal(errBody)
-		if err != nil {
-			log.Printf("Error marshalling json: %s", err)
-			w.WriteHeader(500)
-			return
-		}
-		w.Header().Add("Content-Type", "encoding/json")
-		w.WriteHeader(400)
-		w.Write(dat)
+		respondWithError(w, 400, "Chirp is too long")
 	} else {
-		type reponseValid struct {
-			Valid bool `json:"valid"`
+		type response struct {
+			CleanedBody string `json:"cleaned_body"`
 		}
-		responseBody := reponseValid{
-			Valid: true,
+		forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
+		filteredBody := filterWords(forbiddenWords, params.Body)
+
+		responseBody := response{
+			CleanedBody: filteredBody,
 		}
 
-		dat, err := json.Marshal(responseBody)
-		if err != nil {
-			log.Printf("Error marshalling json: %s", err)
-			w.WriteHeader(500)
-			return
-		}
-
-		w.Header().Add("Content-Type", "encoding/json")
-		w.WriteHeader(200)
-		w.Write(dat)
+		respondWithJSON(w, 200, responseBody)
 	}
 }
