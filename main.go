@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,16 +11,17 @@ import (
 	"github.com/macrespo42/miniserver/internal/database"
 )
 
-func main() {
+func GetDbConnection() *database.Queries {
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatal("Error when connection to database")
 	}
-	dbQueries := database.New(db)
-	fmt.Println(dbQueries)
+	return database.New(db)
+}
 
+func main() {
 	apiCfg := ApiConfig{}
 	mux := http.NewServeMux()
 	rootHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -31,6 +31,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", HandlerHealth)
 	mux.HandleFunc("POST /api/validate_chirp", HandlerValidateChirp)
+	mux.HandleFunc("POST /api/users", HandleCreateUser)
 
 	mux.HandleFunc("POST /admin/reset", apiCfg.HandleReset)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.HandleServerHits)

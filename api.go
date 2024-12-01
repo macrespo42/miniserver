@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -56,30 +57,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(dat)
 }
 
-func HandlerProfane(w http.ResponseWriter, r *http.Request) {
-	params := parameters{}
-	decoder := json.NewDecoder(r.Body)
-
-	err := decoder.Decode(&params)
-	if err != nil {
-		w.WriteHeader(500)
-		return
-	}
-
-	forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
-	filteredBody := filterWords(forbiddenWords, params.Body)
-
-	type responseBody struct {
-		CleanedBody string `json:"cleaned_body"`
-	}
-
-	respBody := responseBody{
-		CleanedBody: filteredBody,
-	}
-
-	respondWithJSON(w, 200, respBody)
-}
-
 func HandlerHealth(w http.ResponseWriter, _ *http.Request) {
 	body := []byte("OK")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -111,4 +88,32 @@ func HandlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 
 		respondWithJSON(w, 200, responseBody)
 	}
+}
+
+func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+	type createUserParams struct {
+		Email string `json:"email"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	params := createUserParams{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+	}
+
+	db := GetDbConnection()
+
+	user, err := db.CreateUser(context.Background(), params.Email)
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+	}
+
+	userJson := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+	respondWithJSON(w, 201, userJson)
 }
