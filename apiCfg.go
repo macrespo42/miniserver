@@ -3,12 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"sync/atomic"
 )
-
-type ApiConfig struct {
-	fileServerHits atomic.Int32
-}
 
 func (cfg *ApiConfig) MiddlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

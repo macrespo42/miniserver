@@ -90,7 +90,7 @@ func HandlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	type createUserParams struct {
 		Email string `json:"email"`
 	}
@@ -102,9 +102,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 500, "Something went wrong")
 	}
 
-	db := GetDbConnection()
-
-	user, err := db.CreateUser(context.Background(), params.Email)
+	user, err := cfg.db.CreateUser(context.Background(), params.Email)
 	if err != nil {
 		respondWithError(w, 500, err.Error())
 	}
