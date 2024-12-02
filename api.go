@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/macrespo42/miniserver/internal/database"
 )
 
 type parameters struct {
@@ -64,32 +67,6 @@ func HandlerHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Write(body)
 }
 
-func HandlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
-
-	err := decoder.Decode(&params)
-	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
-	}
-
-	if len(params.Body) > 140 {
-		respondWithError(w, 400, "Chirp is too long")
-	} else {
-		type response struct {
-			CleanedBody string `json:"cleaned_body"`
-		}
-		forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
-		filteredBody := filterWords(forbiddenWords, params.Body)
-
-		responseBody := response{
-			CleanedBody: filteredBody,
-		}
-
-		respondWithJSON(w, 200, responseBody)
-	}
-}
-
 func (cfg *ApiConfig) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	type createUserParams struct {
 		Email string `json:"email"`
@@ -114,4 +91,48 @@ func (cfg *ApiConfig) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Email:     user.Email,
 	}
 	respondWithJSON(w, 201, userJson)
+}
+
+func (cfg *ApiConfig) HandleCreateChirp(w http.ResponseWriter, r *http.Request) {
+	type createChirpArgs struct {
+		Body   string    `json:"body"`
+		UserId uuid.UUID `json:"user_id"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := createChirpArgs{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+	}
+
+	if len(params.Body) > 140 {
+		respondWithError(w, 400, "Chirp is too long")
+	}
+	type response struct {
+		CleanedBody string `json:"cleaned_body"`
+	}
+
+	forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
+	params.Body = filterWords(forbiddenWords, params.Body)
+
+	createChirpParams := database.CreateChirpParams{
+		Body:   params.Body,
+		UserID: params.UserId,
+	}
+	chirp, err := cfg.db.CreateChirp(context.Background(), createChirpParams)
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+	}
+
+	chirpJson := Chirp{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserId:    chirp.UserID,
+	}
+
+	respondWithJSON(w, 201, chirpJson)
 }

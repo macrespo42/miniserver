@@ -39,8 +39,8 @@ func main() {
 	mux.HandleFunc("GET /app/assets/logo.png", HandlerImage)
 
 	mux.HandleFunc("GET /api/healthz", HandlerHealth)
-	mux.HandleFunc("POST /api/validate_chirp", HandlerValidateChirp)
 	mux.HandleFunc("POST /api/users", apiCfg.HandleCreateUser)
+	mux.HandleFunc("POST /api/chirps", apiCfg.HandleCreateChirp)
 
 	mux.HandleFunc("POST /admin/reset", apiCfg.HandleReset)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.HandleServerHits)
