@@ -11,10 +11,6 @@ import (
 	"github.com/macrespo42/miniserver/internal/database"
 )
 
-type parameters struct {
-	Body string `json:"body"`
-}
-
 func filterWords(words []string, text string) string {
 	for _, word := range words {
 		splitted := strings.Split(text, " ")
@@ -109,9 +105,6 @@ func (cfg *ApiConfig) HandleCreateChirp(w http.ResponseWriter, r *http.Request) 
 
 	if len(params.Body) > 140 {
 		respondWithError(w, 400, "Chirp is too long")
-	}
-	type response struct {
-		CleanedBody string `json:"cleaned_body"`
 	}
 
 	forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
