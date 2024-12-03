@@ -3,7 +3,7 @@ package auth
 import "golang.org/x/crypto/bcrypt"
 
 func HashPassword(password string) (string, error) {
-	hashBytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	hashBytes, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return "", err
 	}
@@ -12,5 +12,5 @@ func HashPassword(password string) (string, error) {
 }
 
 func CheckPasswordHash(password, hash string) error {
-	return bcrypt.CompareHashAndPassword([]byte(password), []byte(hash))
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }

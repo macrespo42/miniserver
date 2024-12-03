@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/macrespo42/miniserver/internal/auth"
 	"github.com/macrespo42/miniserver/internal/database"
 )
 
@@ -64,20 +65,34 @@ func HandlerHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (cfg *ApiConfig) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	type createUserParams struct {
-		Email string `json:"email"`
+	type requestParams struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	decoder := json.NewDecoder(r.Body)
-	params := createUserParams{}
+	params := requestParams{}
 
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
+		return
 	}
 
-	user, err := cfg.db.CreateUser(context.Background(), params.Email)
+	hashed_password, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "Can't hash password")
+		return
+	}
+
+	userParams := database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashed_password,
+	}
+
+	user, err := cfg.db.CreateUser(context.Background(), userParams)
 	if err != nil {
 		respondWithError(w, 500, err.Error())
+		return
 	}
 
 	userJson := User{
@@ -87,6 +102,43 @@ func (cfg *ApiConfig) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Email:     user.Email,
 	}
 	respondWithJSON(w, 201, userJson)
+}
+
+func (cfg *ApiConfig) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	type requestParams struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := requestParams{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		return
+	}
+
+	user, err := cfg.db.GetUserByEmail(context.Background(), params.Email)
+	if err != nil {
+		respondWithError(w, 404, "User not found")
+		return
+	}
+
+	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+
+	userJson := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	respondWithJSON(w, 200, userJson)
 }
 
 func (cfg *ApiConfig) HandleCreateChirp(w http.ResponseWriter, r *http.Request) {
@@ -101,10 +153,12 @@ func (cfg *ApiConfig) HandleCreateChirp(w http.ResponseWriter, r *http.Request) 
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
+		return
 	}
 
 	if len(params.Body) > 140 {
 		respondWithError(w, 400, "Chirp is too long")
+		return
 	}
 
 	forbiddenWords := []string{"kerfuffle", "sharbert", "fornax"}
@@ -117,6 +171,7 @@ func (cfg *ApiConfig) HandleCreateChirp(w http.ResponseWriter, r *http.Request) 
 	chirp, err := cfg.db.CreateChirp(context.Background(), createChirpParams)
 	if err != nil {
 		respondWithError(w, 500, err.Error())
+		return
 	}
 
 	chirpJson := Chirp{
@@ -134,6 +189,7 @@ func (cfg *ApiConfig) HandleGetAllChirps(w http.ResponseWriter, r *http.Request)
 	chirps, err := cfg.db.GetAllChirp(context.Background())
 	if err != nil {
 		respondWithError(w, 500, err.Error())
+		return
 	}
 
 	chirpsJson := []Chirp{}
@@ -157,11 +213,13 @@ func (cfg *ApiConfig) HandleGetChirp(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(rawId)
 	if err != nil {
 		respondWithError(w, 404, "Invalid chirp id")
+		return
 	}
 
 	chirp, err := cfg.db.GetChirp(context.Background(), id)
 	if err != nil {
 		respondWithError(w, 404, "Chirp not found")
+		return
 	}
 
 	chirpJson := Chirp{
